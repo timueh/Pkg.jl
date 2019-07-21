@@ -22,6 +22,7 @@ logdir() = joinpath(depots1(), "logs")
 devdir() = get(ENV, "JULIA_PKG_DEVDIR", joinpath(depots1(), "dev"))
 envdir(depot = depots1()) = joinpath(depot, "environments")
 const UPDATED_REGISTRY_THIS_SESSION = Ref(false)
+const OFFLINE_MODE = Ref(false)
 
 # load snapshotted dependencies
 include("../ext/TOML/src/TOML.jl")
@@ -331,6 +332,16 @@ Pkg.activate("MyDependency")
 """
 const activate = API.activate
 
+"""
+    Pkg.offline(b::Bool=true)
+
+Enable (`b=true`) or disable (`b=false`) offline mode.
+
+In offline mode Pkg tries to do as much as possible without connecting
+to internet. For example, when adding a package Pkg only considers
+versions that are already downloaded in version resolve.
+"""
+offline(b::Bool=true) = (OFFLINE_MODE[] = b; nothing)
 
 """
     PackageSpec(name::String, [uuid::UUID, version::VersionNumber])

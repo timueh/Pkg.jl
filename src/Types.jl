@@ -11,7 +11,7 @@ import Base.string
 using REPL.TerminalMenus
 
 using ..TOML
-import ..Pkg, ..UPDATED_REGISTRY_THIS_SESSION
+import ..Pkg, ..UPDATED_REGISTRY_THIS_SESSION, ..OFFLINE_MODE
 import Pkg: GitTools, depots, depots1, logdir
 
 import Base: SHA1
@@ -305,6 +305,7 @@ Base.@kwdef mutable struct Context
     # Remove next field when support for Pkg2 CI scripts is removed
     currently_running_target::Bool = false
     old_pkg2_clone_name::String = ""
+    offline::Bool = OFFLINE_MODE[]
 end
 
 include("project.jl")
@@ -544,19 +545,25 @@ function canonical_dev_path!(ctx::Context, pkg::PackageSpec, shared::Bool; defau
     end
 end
 
-function fresh_clone(pkg::PackageSpec)
+function fresh_clone(pkg::PackageSpec; offline = false)
     clone_path = joinpath(depots1(), "clones")
     mkpath(clone_path)
     repo_path = joinpath(clone_path, string(hash(pkg.repo.url), "_full"))
-    # make sure you have a fresh clone
+    # make sure you have a fresh clone (unless in offline mode, then work with what we got)
     repo = nothing
-    try
-        repo = GitTools.ensure_clone(repo_path, pkg.repo.url)
-        Base.shred!(LibGit2.CachedCredentials()) do creds
-            GitTools.fetch(repo, pkg.repo.url; refspecs=refspecs, credentials=creds)
+    if offline
+        if !ispath(repo_path)
+            pkgerror("no cached clone found, can not obtain clone in offline mode")
         end
-    finally
-        repo isa LibGit2.GitRepo && LibGit2.close(repo)
+    else # online
+        try
+            repo = GitTools.ensure_clone(repo_path, pkg.repo.url)
+            Base.shred!(LibGit2.CachedCredentials()) do creds
+                GitTools.fetch(repo, pkg.repo.url; refspecs=refspecs, credentials=creds)
+            end
+        finally
+            repo isa LibGit2.GitRepo && LibGit2.close(repo)
+        end
     end
     # Copy the repo to a temporary place and check out the rev
     temp_repo = mktempdir()
@@ -567,8 +574,9 @@ end
 
 function remote_dev_path!(ctx::Context, pkg::PackageSpec, shared::Bool)
     # Only update the registry in case of developing a non-local package
+    # TODO: but the local package we develop may have deps???
     update_registries(ctx)
-    # We save the repo in case another environement wants to develop from the same repo,
+    # We save the repo in case another environment wants to develop from the same repo,
     # this avoids having to reclone it from scratch.
     if pkg.repo.url === nothing # specified by name or uuid
         if !has_uuid(pkg)
@@ -577,7 +585,7 @@ function remote_dev_path!(ctx::Context, pkg::PackageSpec, shared::Bool)
         end
         _, pkg.repo.url = Types.registered_info(ctx.env, pkg.uuid, "repo")[1] #TODO look into [1]
     end
-    temp_clone = fresh_clone(pkg)
+    temp_clone = fresh_clone(pkg; offline=ctx.offline)
     # parse repo to determine dev path
     parse_package!(ctx, pkg, temp_clone)
     canonical_dev_path!(ctx, pkg, shared; default=temp_clone)
@@ -591,6 +599,7 @@ function handle_repos_develop!(ctx::Context, pkgs::AbstractVector{PackageSpec}, 
         if pkg.repo.url !== nothing && isdir_windows_workaround(pkg.repo.url)
             explicit_dev_path(ctx, pkg)
         elseif pkg.name !== nothing
+            # set pkg.path if the package already exist in dev folder
             canonical_dev_path!(ctx, pkg, shared)
         end
         if pkg.path === nothing
@@ -605,12 +614,18 @@ function handle_repos_develop!(ctx::Context, pkgs::AbstractVector{PackageSpec}, 
 end
 
 clone_path(url) = joinpath(depots1(), "clones", string(hash(url)))
-function clone_path!(url)
+function clone_path!(url; offline::Bool=false)
     clone = clone_path(url)
     mkpath(dirname(clone))
-    Base.shred!(LibGit2.CachedCredentials()) do creds
-        LibGit2.with(GitTools.ensure_clone(clone, url; isbare=true, credentials=creds)) do repo
-            GitTools.fetch(repo; refspecs=refspecs, credentials=creds)
+    if offline
+        if !ispath(clone)
+            pkgerror("no cached clone found, can not obtain clone in offline mode")
+        end
+    else # online
+        Base.shred!(LibGit2.CachedCredentials()) do creds
+            LibGit2.with(GitTools.ensure_clone(clone, url; isbare=true, credentials=creds)) do repo
+                GitTools.fetch(repo; refspecs=refspecs, credentials=creds)
+            end
         end
     end
     return clone
@@ -669,9 +684,9 @@ function tree_hash(repo_path, rev)
     end
 end
 
-function instantiate_pkg_repo!(pkg::PackageSpec, cached_repo::Union{Nothing,String}=nothing)
+function instantiate_pkg_repo!(pkg::PackageSpec, cached_repo::Union{Nothing,String}=nothing; offline=false)
     pkg.special_action = PKGSPEC_REPO_ADDED
-    clone = clone_path!(pkg.repo.url)
+    clone = clone_path!(pkg.repo.url; offline=offline)
     pkg.tree_hash = tree_hash(clone, pkg.repo.rev)
     version_path = Pkg.Operations.find_installed(pkg.name, pkg.uuid, pkg.tree_hash)
     if cached_repo === nothing
@@ -1108,6 +1123,7 @@ end
 # entry point for `registry up`
 function update_registries(ctx::Context, regs::Vector{RegistrySpec} = collect_registries(depots1());
                            force::Bool=false)
+    ctx.offline && return
     !force && UPDATED_REGISTRY_THIS_SESSION[] && return
     errors = Tuple{String, String}[]
     ctx.preview && (@info("skipping updating registries in preview mode"); return nothing)

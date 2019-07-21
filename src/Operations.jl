@@ -129,17 +129,24 @@ function load_package_data_raw(T::Type, path::String)
     return data
 end
 
-function load_versions(path::String; include_yanked = false)
+function load_versions(path::String; include_yanked=false, offline=false)
     toml = parse_toml(path, "Versions.toml"; fakeit=true)
-    return Dict{VersionNumber, SHA1}(
+    versions = Dict{VersionNumber, SHA1}(
         VersionNumber(ver) => SHA1(info["git-tree-sha1"]) for (ver, info) in toml
             if !get(info, "yanked", false) || include_yanked)
+    if offline # filter out all versions that are not downloaded already
+        pkg = parse_toml(path, "Package.toml")
+        filter!(versions) do (v, sha)
+            ispath(find_installed(pkg["name"], Base.UUID(pkg["uuid"]), sha))
+        end
+    end
+    return versions
 end
 
 function load_tree_hash(ctx::Context, pkg::PackageSpec)
     hashes = SHA1[]
     for path in registered_paths(ctx.env, pkg.uuid)
-        vers = load_versions(path; include_yanked = true)
+        vers = load_versions(path; include_yanked=true, offline=ctx.offline)
         hash = get(vers, pkg.version, nothing)
         hash !== nothing && push!(hashes, hash)
     end
@@ -390,7 +397,7 @@ function deps_graph(ctx::Context, uuid_to_name::Dict{UUID,String}, reqs::Require
                 end
             else
                 for path in registered_paths(ctx.env, uuid)
-                    version_info = load_versions(path; include_yanked = false)
+                    version_info = load_versions(path; include_yanked=false, offline=ctx.offline)
                     versions = sort!(collect(keys(version_info)))
                     deps_data = load_package_data_raw(UUID, joinpath(path, "Deps.toml"))
                     compat_data = load_package_data_raw(VersionSpec, joinpath(path, "Compat.toml"))
@@ -988,13 +995,13 @@ end
 
 # load version constraint
 # if version isa VersionNumber -> set tree_hash too
-up_load_versions!(pkg::PackageSpec, ::Nothing, level::UpgradeLevel) = false
-function up_load_versions!(pkg::PackageSpec, entry::PackageEntry, level::UpgradeLevel)
+up_load_versions!(pkg::PackageSpec, ::Nothing, level::UpgradeLevel; offline=false) = false
+function up_load_versions!(pkg::PackageSpec, entry::PackageEntry, level::UpgradeLevel; offline=false)
     entry.version !== nothing || return false # no version to set
     if entry.repo.url !== nothing # repo packages have a version but are treated special
         pkg.repo = entry.repo
         if level == UPLEVEL_MAJOR
-            new = instantiate_pkg_repo!(pkg)
+            new = instantiate_pkg_repo!(pkg; offline=offline)
             pkg.version = entry.version
             if pkg.tree_hash != entry.tree_hash
                 # TODO parse find_installed and set new version
@@ -1032,7 +1039,7 @@ function up(ctx::Context, pkgs::Vector{PackageSpec}, level::UpgradeLevel)
     # TODO check all pkg.version == VersionSpec()
     # set version constraints according to `level`
     for pkg in pkgs
-        new = up_load_versions!(pkg, manifest_info(ctx.env, pkg.uuid), level)
+        new = up_load_versions!(pkg, manifest_info(ctx.env, pkg.uuid), level; offline=ctx.offline)
         new && push!(new_git, pkg.uuid) #TODO put download + push! in utility function
     end
     # load rest of manifest data (except for version info)

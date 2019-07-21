@@ -365,7 +365,7 @@ function _version_data!(ctx::Context, pkgs::Vector{PackageSpec})
             info = parse_toml(path, "Package.toml")
             repo = info["repo"]
             repo in clones[uuid] || push!(clones[uuid], repo)
-            vers = load_versions(path; include_yanked = true)
+            vers = load_versions(path; include_yanked = true, offline=ctx.offline)
             hash = get(vers, ver, nothing)
             hash !== nothing || continue
             if haskey(hashes, uuid)
