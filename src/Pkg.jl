@@ -217,7 +217,7 @@ git revision. A pinned package is never updated.
 # Examples
 ```julia
 Pkg.pin("Example")
-Pkg.pin(PackageSpec(name="Example", version="0.3.1"))
+Pkg.pin(name="Example", version="0.3.1")
 ```
 """
 const pin = API.pin
@@ -240,6 +240,7 @@ const free = API.free
 
 
 """
+    Pkg.develop(;packagespecargs...)
     Pkg.develop(pkg::Union{String, Vector{String}})
     Pkg.develop(pkgs::Union{Packagespec, Vector{Packagespec}})
 
@@ -256,10 +257,10 @@ If `pkg` is given as a local path, the package at that path will be tracked.
 Pkg.develop("Example")
 
 # By url
-Pkg.develop(PackageSpec(url="https://github.com/JuliaLang/Compat.jl"))
+Pkg.develop(url="https://github.com/JuliaLang/Compat.jl")
 
 # By path
-Pkg.develop(PackageSpec(path="MyJuliaPackages/Package.jl"))
+Pkg.develop(path="MyJuliaPackages/Package.jl")
 ```
 
 See also [`PackageSpec`](@ref)
@@ -403,16 +404,26 @@ in the vector.
 
 Below is a comparison between the REPL version and the API version:
 
-| `REPL`               | `API`                                                 |
-|:---------------------|:------------------------------------------------------|
-| `Package`            | `PackageSpec("Package")`                              |
-| `Package@0.2`        | `PackageSpec(name="Package", version="0.2")`          |
-| `Package=a67d...`    | `PackageSpec(name="Package", uuid="a67d...")`         |
-| `Package#master`     | `PackageSpec(name="Package", rev="master")`           |
-| `local/path#feature` | `PackageSpec(path="local/path"; rev="feature")`       |
-| `www.mypkg.com`      | `PackageSpec(url="www.mypkg.com")`                    |
-| `--manifest Package` | `PackageSpec(name="Package", mode=PKGSPEC_MANIFEST)`  |
-| `--major Package`    | `PackageSpec(name="Package", version=PKGLEVEL_MAJOR)` |
+| `REPL`                 | `API`                                                 |
+|:-----------------------|:------------------------------------------------------|
+| `Package`              | `PackageSpec("Package")`                              |
+| `Package@0.2`          | `PackageSpec(name="Package", version="0.2")`          |
+| `Package=a67d...`      | `PackageSpec(name="Package", uuid="a67d...")`         |
+| `Package#master`       | `PackageSpec(name="Package", rev="master")`           |
+| `local/path#feature`   | `PackageSpec(path="local/path"; rev="feature")`       |
+| `www.myhost.com/MyPkg` | `PackageSpec(url="www.myhost.com/MyPkg")`             |
+| `--manifest Package`   | `PackageSpec(name="Package", mode=PKGSPEC_MANIFEST)`  |
+| `--major Package`      | `PackageSpec(name="Package", version=PKGLEVEL_MAJOR)` |
+
+!!! compat "Julia 1.4"
+    In Julia 1.4, many functions that take a `PackageSpec` or a `Vector{PackageSpec}` can be called with a more concise notation.
+    For example, `Pkg.add` can be called either as the explicit or concise versions as:
+
+    | Explicit                                                            | Concise
+    |:--------------------------------------------------------------------|:-----------------------------------------------|
+    | `Pkg.add(PackageSpec(name="Package))`                               | `Pkg.add(name = "Package")`                    |
+    | `Pkg.add(PackageSpec(url="www.myhost.com/MyPkg")))`                 | `Pkg.add(name = "Package")`                    |
+    |` Pkg.add([PacakgeSpec(name="Package"), PackageSpec(path="/MyPkg"])` | `Pkg.add([(name="Package",), (path="MyPkg",)])`|
 """
 const PackageSpec = API.Package
 

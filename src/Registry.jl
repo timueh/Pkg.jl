@@ -24,8 +24,8 @@ Pkg.Registry.add(RegistrySpec(url = "https://github.com/JuliaRegistries/General.
 add(reg::Union{String,RegistrySpec}; kwargs...) = add([reg]; kwargs...)
 add(regs::Vector{String}; kwargs...) = add([RegistrySpec(name = name) for name in regs]; kwargs...)
 add(regs::Vector{RegistrySpec}; kwargs...) = add(Context(), regs; kwargs...)
-function add(ctx::Context, regs::Vector{RegistrySpec}; kwargs...)
-    Context!(ctx; kwargs...)
+function add(ctx::Context, regs::Vector{RegistrySpec}; context_args=())
+    Context!(ctx; context_args...)
     Types.clone_or_cp_registries(ctx, regs)
 end
 
@@ -47,8 +47,8 @@ Pkg.Registry.rm(RegistrySpec(uuid = "23338594-aafe-5451-b93e-139f81909106"))
 rm(reg::Union{String,RegistrySpec}; kwargs...) = rm([reg]; kwargs...)
 rm(regs::Vector{String}; kwargs...) = rm([RegistrySpec(name = name) for name in regs]; kwargs...)
 rm(regs::Vector{RegistrySpec}; kwargs...) = rm(Context(), regs; kwargs...)
-function rm(ctx::Context, regs::Vector{RegistrySpec}; kwargs...)
-    Context!(ctx; kwargs...)
+function rm(ctx::Context, regs::Vector{RegistrySpec}; context_args=())
+    Context!(ctx; context_args...)
     Types.remove_registries(ctx, regs)
 end
 
@@ -76,8 +76,8 @@ update(regs::Vector{RegistrySpec} = Types.collect_registries(depots1()); kwargs.
     update(Context(), regs; kwargs...)
 function update(ctx::Context,
                 regs::Vector{RegistrySpec} = Types.collect_registries(depots1());
-                kwargs...)
-    Context!(ctx; kwargs...)
+                context_args=())
+    Context!(ctx; context_args...)
     Types.update_registries(ctx, regs; force=true)
 end
 
@@ -95,8 +95,8 @@ Pkg.Registry.status()
 ```
 """
 status(; kwargs...) = status(Context(); kwargs...)
-function status(ctx::Context; io::IO=stdout, kwargs...)
-    Context!(ctx; io=io, kwargs...)
+function status(ctx::Context; io::IO=stdout, context_args=())
+    Context!(ctx; io=io, context_args...)
     regs = Types.collect_registries()
     regs = unique(r -> r.uuid, regs) # Maybe not?
     Types.printpkgstyle(ctx, Symbol("Registry Status"), "")

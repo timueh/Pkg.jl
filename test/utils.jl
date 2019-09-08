@@ -75,6 +75,8 @@ function cd_tempdir(f; rm=true)
 end
 
 isinstalled(pkg) = Base.locate_package(Base.PkgId(pkg.uuid, pkg.name)) !== nothing
+# Only for Project deps
+isinstalled(pkg::String) = Base.find_package(pkg)
 
 function write_build(path, content)
     build_filename = joinpath(path, "deps", "build.jl")

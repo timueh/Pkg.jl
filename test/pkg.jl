@@ -358,12 +358,12 @@ end
 
 temp_pkg_dir() do project_path
     @testset "libgit2 downloads" begin
-        Pkg.add(TEST_PKG.name; use_libgit2_for_all_downloads=true)
+        Pkg.add(TEST_PKG.name; context_args=(use_only_tarballs_for_downloads=true,))
         @test haskey(Pkg.dependencies(), TEST_PKG.uuid)
         Pkg.rm(TEST_PKG.name)
     end
     @testset "tarball downloads" begin
-        Pkg.add("JSON"; use_only_tarballs_for_downloads=true)
+        Pkg.add("JSON"; context_args=(use_only_tarballs_for_downloads=>true,))
         @test "JSON" in [pkg.name for (uuid, pkg) in Pkg.dependencies()]
         Pkg.rm("JSON")
     end
@@ -810,13 +810,25 @@ end
 
 @testset "query interface basic tests" begin
     temp_pkg_dir() do project_path; with_temp_env() do
-        Pkg.develop("Example")
-        Pkg.add("Unicode")
-        Pkg.add("Markdown")
-        @test length(Pkg.project().dependencies) == 3
-        xs = Dict(uuid => pkg for (uuid, pkg) in Pkg.dependencies() if pkg.isdeveloped)
-        @test length(xs) == 1
-        @test xs[TEST_PKG.uuid].ispinned == false
+        Pkg.add(url = "https://github.com/JuliaLang/Example.jl")
+        @test isinstalled("Example")
+        Pkg.develop([(path=joinpath(@__DIR__, "test_packages", "x1"),),
+                     (path=joinpath(@__DIR__, "test_packages", "x2"),)])
+        @test isinstalled("x1")
+        @test isinstalled("x2")
+        Pkg.rm([(name = "Example",), (name = "x1",), (name = "x2",)])
+        @test !isinstalled("Example")
+        @test !isinstalled("x1")
+        @test !isinstalled("x2")
+    end end
+end
+
+@testset "convenience calls for PackageSpec" begin
+    temp_pkg_dir() do project_path; with_temp_env() do
+        Pkg.develop(name="Example")
+
+        @test_throws PkgError Pkg.add()
+        @test_throws PkgError Pkg.rm()
     end end
 end
 

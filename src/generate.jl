@@ -2,7 +2,7 @@
 
 generate(path::String; kwargs...) = generate(Context(), path; kwargs...)
 function generate(ctx::Context, path::String; kwargs...)
-    Context!(ctx; kwargs...)
+    Context!(ctx; context_args...)
     preview_info(ctx)
     dir, pkg = dirname(path), basename(path)
     Base.isidentifier(pkg) || pkgerror("$(repr(pkg)) is not a valid package name")

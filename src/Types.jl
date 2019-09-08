@@ -163,6 +163,18 @@ PackageSpec(name::AbstractString, uuid::UUID) = PackageSpec(;name=name, uuid=uui
 PackageSpec(name::AbstractString, version::VersionTypes) = PackageSpec(;name=name, version=version)
 PackageSpec(n::AbstractString, u::UUID, v::VersionTypes) = PackageSpec(;name=n, uuid=u, version=v)
 
+function Base.:(==)(p1::PackageSpec, p2::PackageSpec)
+    p1.name == p2.name &&
+    p1.uuid == p2.uuid &&
+    p1.version == p2.version &&
+    p1.tree_hash == p2.tree_hash &&
+    p1.repo == p2.repo &&
+    p1.path == p2.path &&
+    p1.pinned == p2.pinned &&
+    p1.special_action == p2.special_action &&
+    p1.mode == p2.mode
+end
+
 has_name(pkg::PackageSpec) = pkg.name !== nothing
 has_uuid(pkg::PackageSpec) = pkg.uuid !== nothing
 
