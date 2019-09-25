@@ -154,9 +154,10 @@ revstring(str::String) = occursin(r"\b([a-f0-9]{40})\b", str) ? str[1:7] : str
 
 vstring(ctx::Context, a::VerInfo) =
     string((a.ver == nothing && a.hash != nothing) ? "[$(string(a.hash)[1:16])]" : "",
-           a.ver != nothing ? "v$(a.ver)" : "",
+           a.ver  != nothing ? "v$(a.ver)" : "",
            a.path != nothing ? " [$(pathrepr(a.path))]" : "",
-           a.repo != nothing ? " #$(revstring(a.repo.rev)) ($(a.repo.source))" : "",
+           a.repo != nothing ? string(" #", revstring(a.repo.rev), " (", a.repo.source,
+                                      a.repo.subdir == nothing ? "" : "[/$(a.repo.subdir)]", ")") : "",
            a.pinned == true ? " ⚲" : "",
            )
 

@@ -944,7 +944,8 @@ end
 function Package(;name::Union{Nothing,AbstractString} = nothing,
                  uuid::Union{Nothing,String,UUID} = nothing,
                  version::Union{VersionNumber, String, VersionSpec, Nothing} = nothing,
-                 url = nothing, rev = nothing, path=nothing, mode::PackageMode = PKGMODE_PROJECT)
+                 url = nothing, rev = nothing, path=nothing, mode::PackageMode = PKGMODE_PROJECT,
+                 subdir = nothing)
     if path !== nothing && url !== nothing
         pkgerror("It is invalid to specify both a path and url.")
     end
@@ -952,11 +953,11 @@ function Package(;name::Union{Nothing,AbstractString} = nothing,
         pkgerror("It is invalid to specify both `version` and `url`.",
                  "Hint: `rev` may have been intended instead of `version.")
     end
-    repo = Types.GitRepo(rev = rev, source = url !== nothing ? url : path)
+    repo = Types.GitRepo(rev = rev, source = url !== nothing ? url : path, subdir = subdir)
     version = version === nothing ? VersionSpec() : VersionSpec(version)
     uuid isa String && (uuid = UUID(uuid))
     PackageSpec(;name=name, uuid=uuid, version=version, mode=mode, path=nothing,
-                special_action=PKGSPEC_NOTHING, repo=repo, tree_hash=nothing)
+                special_action=PKGSPEC_NOTHING, repo=repo)
 end
 Package(name::AbstractString) = PackageSpec(name)
 Package(name::AbstractString, uuid::UUID) = PackageSpec(name, uuid)
